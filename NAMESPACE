@@ -3,6 +3,7 @@
 export(addEdgeColors)
 export(addEdgeSize)
 export(addInteraction)
+export(addListener)
 export(addNodeColors)
 export(addNodeLabels)
 export(addNodeSize)

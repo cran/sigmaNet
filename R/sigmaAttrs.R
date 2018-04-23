@@ -43,8 +43,13 @@ addNodeColors <- function(sigmaObj, oneColor = NULL, colorAttr = NULL, colorPal 
   nodes <- jsonlite::fromJSON(sigmaObj$x$data)$nodes
 
   if(is.null(oneColor)){
-    nodes$tempCol <- igraph::as_data_frame(sigmaObj$x$graph, what = 'vertices')[,colorAttr]
-    suppressWarnings(pal <- RColorBrewer::brewer.pal(length(unique(nodes[,'tempCol'])), colorPal))
+    #nodes$tempCol <- igraph::as_data_frame(sigmaObj$x$graph, what = 'vertices')[,colorAttr]
+    nodes$tempCol <- sigmaObj$x$graph$vertices[,colorAttr]
+
+    # If there are more node colors than colors in the chosen palette, interpolate colors to expand the palette
+    pal <- tryCatch(RColorBrewer::brewer.pal(length(unique(nodes[,'tempCol'])), colorPal),
+      warning = function(w) (grDevices::colorRampPalette(RColorBrewer::brewer.pal(8, colorPal))(length(unique(nodes[,'tempCol'])))))
+
     palDF <- data.frame(group = unique(nodes[,'tempCol']), color = pal[1:length(unique(nodes[,'tempCol']))], stringsAsFactors = FALSE)
     nodes$color <- palDF$color[match(nodes$tempCol, palDF$group)]
     nodes$tempCol <- NULL
@@ -116,16 +121,17 @@ addNodeSize <- function(sigmaObj, minSize = 1, maxSize = 3, sizeMetric = 'degree
     sigmaObj$x$options$minNodeSize <- minSize
     sigmaObj$x$options$maxNodeSize <- maxSize
   } else{
+    tmp_graph <- igraph::graph_from_data_frame(sigmaObj$x$graph$edges)
     if(sizeMetric == 'degree'){
-      nodes$size <- igraph::degree(sigmaObj$x$graph)
+      nodes$size <- igraph::degree(tmp_graph)
     } else if(sizeMetric == 'closeness'){
-      nodes$size <- igraph::closeness(sigmaObj$x$graph)
+      nodes$size <- igraph::closeness(tmp_graph)
     } else if(sizeMetric == 'betweenness'){
-      nodes$size <- igraph::betweenness(sigmaObj$x$graph)
+      nodes$size <- igraph::betweenness(tmp_graph)
     } else if(sizeMetric == 'pageRank'){
-      nodes$size <- igraph::page_rank(sigmaObj$x$graph)$vector
+      nodes$size <- igraph::page_rank(tmp_graph)$vector
     } else if(sizeMetric == 'eigenCentrality'){
-      nodes$size <- igraph::eigen_centrality(sigmaObj$x$graph)$vector
+      nodes$size <- igraph::eigen_centrality(tmp_graph)$vector
     } else{
       stop('sizeMetric can only be one of: degree, closeness, betweenness, pageRank, or eigenCentrality.')
     }
@@ -168,7 +174,8 @@ addNodeLabels <- function(sigmaObj, labelAttr = NULL){
   edges <- jsonlite::fromJSON(sigmaObj$x$data)$edges
   nodes <- jsonlite::fromJSON(sigmaObj$x$data)$nodes
 
-  nodes$label <- as.character(igraph::as_data_frame(sigmaObj$x$graph, what = 'vertices')[,labelAttr])
+  #nodes$label <- as.character(igraph::as_data_frame(sigmaObj$x$graph, what = 'vertices')[,labelAttr])
+  nodes$label <- as.character(sigmaObj$x$graph$vertices[,labelAttr])
 
   graphOut <- list(nodes, edges)
   names(graphOut) <- c('nodes','edges')
@@ -222,7 +229,8 @@ addEdgeSize <- function(sigmaObj, sizeAttr = NULL, minSize = 1, maxSize = 5, one
     sigmaObj$x$options$minEdgeSize <- oneSize
     sigmaObj$x$options$maxEdgeSize <- oneSize
   } else{
-    edges$size <- as.character(igraph::as_data_frame(sigmaObj$x$graph, what = 'edges')[,sizeAttr])
+    #edges$size <- as.character(igraph::as_data_frame(sigmaObj$x$graph, what = 'edges')[,sizeAttr])
+    edges$size <- as.character(sigmaObj$x$graph$edges[,sizeAttr])
     sigmaObj$x$options$minEdgeSize <- minSize
     sigmaObj$x$options$maxEdgeSize <- maxSize
   }
@@ -269,8 +277,13 @@ addEdgeColors <- function(sigmaObj, oneColor = NULL, colorAttr = NULL, colorPal 
   nodes <- jsonlite::fromJSON(sigmaObj$x$data)$nodes
 
   if(is.null(oneColor)){
-    edges$tempCol <- igraph::as_data_frame(sigmaObj$x$graph, what = 'edges')[,colorAttr]
-    suppressWarnings(pal <- RColorBrewer::brewer.pal(length(unique(edges[,'tempCol'])), colorPal))
+    #edges$tempCol <- igraph::as_data_frame(sigmaObj$x$graph, what = 'edges')[,colorAttr]
+    edges$tempCol <- sigmaObj$x$graph$edges[,colorAttr]
+
+    # If there are more edge colors than colors in the chosen palette, interpolate colors to expand the palette
+    pal <- tryCatch(RColorBrewer::brewer.pal(length(unique(edges[,'tempCol'])), colorPal),
+      warning = function(w) (grDevices::colorRampPalette(RColorBrewer::brewer.pal(8, colorPal))(length(unique(edges[,'tempCol'])))))
+
     palDF <- data.frame(group = unique(edges[,'tempCol']), color = pal[1:length(unique(edges[,'tempCol']))], stringsAsFactors = FALSE)
     edges$color <- palDF$color[match(edges$tempCol, palDF$group)]
     edges$tempCol <- NULL
@@ -359,5 +372,15 @@ addInteraction <- function(sigmaObj, neighborEvent = 'onClick', doubleClickZoom 
   sigmaObj$x$options$doubleClickZoom <- doubleClickZoom
   sigmaObj$x$options$mouseWheelZoom <- mouseWheelZoom
 
+  return(sigmaObj)
+}
+#' Add a "listener" to report data from a 'sigmaNet' object in 'Shiny' back to the R session.
+#'
+#' @param sigmaObj A 'sigmaNet' object - created using the 'sigmaFromIgraph' function
+#' @param listener Either "clickNode" to listen to node clicks or "hoverNode" to listen to node hover
+#'
+#' @export
+addListener <- function(sigmaObj, listener){
+  sigmaObj$x$options$sigmaEvents <- listener
   return(sigmaObj)
 }
